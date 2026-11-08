@@ -1,0 +1,71 @@
+---
+
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags:
+    - lighthouse
+    - update
+
+
+- name: Install nginx
+  become: true
+  ansible.builtin.package:
+    name:
+      - nginx
+    state: present
+  notify: Start nginx service
+  tags:
+    - nginx
+    - install
+
+- name: Clone lighthouse repository
+  ansible.builtin.git:
+    repo: "{{ lighthouse_repo }}"
+    dest: "{{ lighthouse_dest }}"
+    depth: 1
+    version: master
+  tags:
+    - lighthouse
+    - clone
+
+- name: Create lighthouse directory
+  ansible.builtin.file:
+    path: /var/www/lighthouse
+    state: directory
+    mode: '0755'
+  tags:
+    - lighthouse
+    - create_directory
+
+- name: Copy lighthouse files
+  ansible.builtin.copy:
+    src: "{{ lighthouse_dest }}/"
+    dest: /var/www/lighthouse
+    remote_src: true
+    mode: preserve
+  tags:
+    - lighthouse
+    - copy_files
+
+- name: Nginx conf
+  ansible.builtin.template:
+    src: ./templates/lighthouse_nginx.conf.j2
+    dest: /etc/nginx/sites-available/lighthouse
+    mode: "0644"
+  notify: Start nginx service
+  tags:
+    - lighthouse
+    - nginx_conf
+
+- name: Enable site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/lighthouse
+    dest: /etc/nginx/sites-enabled/lighthouse
+    state: link
+  notify: Start nginx service
+  tags:
+    - lighthouse
+    - nginx_site_enable  
